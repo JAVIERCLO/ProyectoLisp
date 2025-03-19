@@ -1,5 +1,3 @@
-package Codes;
-
 public class Predicados {
 
     public static boolean isAtom(Object expr) {

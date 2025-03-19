@@ -1,5 +1,3 @@
-package Codes;
-
 import java.util.*;
 
 public class DefinicionFunciones {
