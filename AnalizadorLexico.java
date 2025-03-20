@@ -47,10 +47,13 @@ public class AnalizadorLexico {
                 return validarDefun();
             case "setq":
                 return validarSetq();
+            case "quote":
+                return validarQuote();
             default:
                 return false;
         }
     }
+
     //Revisar si la estructura de un defun esta bien
     private boolean validarDefun() {
         //Si tiene menos de 5 tokens no tiene la estructura correcta
@@ -101,10 +104,11 @@ public class AnalizadorLexico {
         }
     return true;
     }
+
     //Revisar si la estructura de un setq esta bien
     private boolean validarSetq(){
         //Verificar que empiece con parentesis
-        if(!tokens.get(0).equals("()")){
+        if(!tokens.get(0).equals("(")){
             return false;
         }
         //Si hay menos de 4 tokens la estructura no es correcta.
@@ -115,10 +119,27 @@ public class AnalizadorLexico {
         if(!tokens.getLast().equals(")")){
             return false;
         }
-
     return true;
     }
 
+    //Revisar la estructura de un quote
+    private boolean validarQuote(){
+        // Verificar que haya 4 tokens
+        if (tokens.size() != 4) {
+            return false;
+        }
+        //Verificar que empiece con parentesis
+        if(!tokens.get(0).equals("(")){
+            return false;
+        }
+        //Verificar que tenga un argumento
+
+        //Verificar parentesis final
+        if(!tokens.getLast().equals(")")){
+            return false;
+        }
+    return true;
+    }
 }
 
 
