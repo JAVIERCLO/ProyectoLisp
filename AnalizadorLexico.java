@@ -22,6 +22,8 @@ public class AnalizadorLexico {
         convertir_a_tokens(codigo.toString().trim());
     }
 
+
+
     // Método para dividir el código en tokens
     void convertir_a_tokens(String codigo) {
         tokens.clear();
@@ -36,39 +38,87 @@ public class AnalizadorLexico {
     }
 
     public boolean ExpresionValida() {
-        //Si el codigo tiene menos de 5 tokens la funcion no esta bien declarada
-        if (tokens.size() < 5) {
-            return false;
-        }
-        //Una funcion debe empezar con (defun
-        if (!tokens.get(0).equals("(") || !tokens.get(1).equals("defun")) {
-            return false;
-        }
-        //Verifica el parentesis de cierre
-        int ultimoToken = tokens.lastIndexOf(")");
-        if (ultimoToken != tokens.size() - 1) {
-            return false;
-        }
-        //Verifica ue todos los parametros esten dentro de un parentesis
-        if (!tokens.get(3).equals("(")) {
-            return false;
-        }
+        if (tokens.isEmpty()) return false;
+        
+        String tipoFuncion = tokens.get(1);
 
-        int indexParametrosCierre = -1;
+        switch (tipoFuncion) {
+            case "defun":
+                return validarDefun();
+            case "setq":
+                return validarSetq();
+            default:
+                return false;
+        }
+    }
+    //Revisar si la estructura de un defun esta bien
+    private boolean validarDefun() {
+        //Si tiene menos de 5 tokens no tiene la estructura correcta
+        if(tokens.size() < 5){
+            return false;
+        }
+        //Verifica que empiece con parentesis
+        if(!tokens.get(0).equals("(")){
+            return false;
+        }
+        //Verifica que haya parentesis antes de los parametros
+        if(!tokens.get(3).equals("(")){
+            return false;
+        }
+        //Verifica que haya parentesis despues de los parametros
+        int parentesisParametros = -1;
         for (int i = 4; i < tokens.size(); i++) {
             if (tokens.get(i).equals(")")) {
-                indexParametrosCierre = i;
+                parentesisParametros = i;
                 break;
             }
         }
-
-        // Verifica que el cuerpo esté despues de los parámetros
-        if (indexParametrosCierre + 1 >= tokens.size() - 1) {
+        //Si no hay parentesis es falso
+        if(parentesisParametros == -1) {
+            return false;
+        }
+        // Verificar que el parentesis de los parametros no sea el ultimo token
+        if(parentesisParametros + 1 >= tokens.size() - 1) {
+            return false;
+        }
+        //Verificar que el cuerpo este entre parentesis
+        if(!tokens.get(parentesisParametros + 1).equals("(")) {
+            return false;
+        }
+        //Verificar que el cuerpo tenga parentesis de cierre
+        int parentesisCuerpo = -1;
+        for (int i = parentesisParametros + 2; i < tokens.size(); i++) {
+            if (tokens.get(i).equals(")")) {
+                parentesisCuerpo = i;
+            }
+        }//Si no hay parentesis es falso
+        if (parentesisCuerpo == -1) {
+            return false;
+        }
+        //Verificar parentesis final
+        if(!tokens.getLast().equals(")")){
+            return false;
+        }
+    return true;
+    }
+    //Revisar si la estructura de un setq esta bien
+    private boolean validarSetq(){
+        //Verificar que empiece con parentesis
+        if(!tokens.get(0).equals("()")){
+            return false;
+        }
+        //Si hay menos de 4 tokens la estructura no es correcta.
+        if(tokens.size() < 4){
+            return false;
+        }
+        //Verificar parentesis final
+        if(!tokens.getLast().equals(")")){
             return false;
         }
 
-        return true;
+    return true;
     }
+
 }
 
 
