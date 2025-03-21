@@ -4,7 +4,7 @@ import java.io.IOException;
 
 public class Interprete {
     public static void main(String[] args) {
-        Environment entorno = new Environment();
+        Environment entorno = new Environment(); // ✅ Se conserva el mismo entorno
         AnalizadorLexico analizador = new AnalizadorLexico(entorno);
 
         String nombreArchivo = "programa.lisp";
@@ -26,10 +26,13 @@ public class Interprete {
                 expresion.append(" ");
 
                 if (balanceParentesis == 0 && expresion.length() > 0) {
-                    analizador.convertir_a_tokens(expresion.toString().trim());
-                    System.out.println("Código LISP: " + expresion.toString().trim());
+                    String expresionLimpia = expresion.toString().trim();
+
+                    analizador.convertir_a_tokens(expresionLimpia);
+                    System.out.println("Código LISP: " + expresionLimpia);
                     Object resultado = analizador.ExpresionValida();
                     System.out.println(">>> Resultado: " + resultado + "\n");
+
                     expresion.setLength(0);
                 }
             }

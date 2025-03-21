@@ -1,13 +1,23 @@
 import java.util.*;
 
+/**
+ * Analizador léxico e intérprete para expresiones LISP básicas.
+ * Soporta operaciones aritméticas, definición y llamada a funciones, condicionales y predicados.
+ */
 public class AnalizadorLexico {
     private Environment entorno;
     public List<String> tokens = new ArrayList<>();
 
+    /**
+     * Constructor con entorno de ejecución.
+     */
     public AnalizadorLexico(Environment entorno) {
         this.entorno = entorno;
     }
-
+    /**
+     * Convierte una expresión LISP en una lista de tokens.
+     * @param expresion Código LISP como cadena.
+     */
     public void convertir_a_tokens(String expresion) {
         tokens.clear();
         StringBuilder token = new StringBuilder();
@@ -32,10 +42,13 @@ public class AnalizadorLexico {
         }
     }
 
+    /**
+     * Evalúa los tokens para saber si la expresion es valida
+     * @return Resultado de la evaluación.
+     */
     public Object ExpresionValida() {
         if (tokens.isEmpty()) return false;
 
-        // ✅ Verificar si es una función definida antes del switch
         if (tokens.size() >= 2 && entorno.funcionExiste(tokens.get(1))) {
             return evaluarLlamadaFuncion(tokens.get(1));
         }
@@ -98,7 +111,7 @@ public class AnalizadorLexico {
     private Object evaluarSetq() {
         if (tokens.size() != 5) return "Error: setq requiere una variable y un valor.";
         String variable = tokens.get(2);
-        Object valor = parseValor(tokens.get(3));
+        Object valor = parseValorObj(tokens.get(3));
         entorno.variables.put(variable, valor);
         return valor;
     }
@@ -176,27 +189,46 @@ public class AnalizadorLexico {
             if (tokens.get(i).equals("(")) {
                 int j = i + 1;
                 int balance = 1;
-                StringBuilder condicionStr = new StringBuilder();
-                condicionStr.append("(");
+                List<String> subTokens = new ArrayList<>();
+                subTokens.add("(");
+
                 while (j < tokens.size() && balance > 0) {
-                    condicionStr.append(tokens.get(j)).append(" ");
-                    if (tokens.get(j).equals("(")) balance++;
-                    if (tokens.get(j).equals(")")) balance--;
+                    String t = tokens.get(j);
+                    subTokens.add(t);
+                    if (t.equals("(")) balance++;
+                    if (t.equals(")")) balance--;
                     j++;
                 }
 
-                AnalizadorLexico analizadorCond = new AnalizadorLexico(entorno);
-                analizadorCond.convertir_a_tokens(condicionStr.toString().trim());
-                Object resultadoCond = analizadorCond.ExpresionValida();
+                if (subTokens.size() >= 3) {
+                    // Separa condición y cuerpo
+                    List<String> condicionTokens = new ArrayList<>();
+                    List<String> cuerpoTokens = new ArrayList<>();
+                    int separador = 1;
 
-                if (resultadoCond instanceof Boolean && (Boolean) resultadoCond) {
-                    if (j < tokens.size() - 1) {
-                        String valor = tokens.get(j);
-                        return parseValor(valor);
+                    while (separador < subTokens.size() - 1 && !subTokens.get(separador).equals("(") && !subTokens.get(separador + 1).equals("(")) {
+                        condicionTokens.add(subTokens.get(separador));
+                        separador++;
+                    }
+
+                    for (int k = separador; k < subTokens.size() - 1; k++) {
+                        cuerpoTokens.add(subTokens.get(k));
+                    }
+
+                    AnalizadorLexico analizadorCond = new AnalizadorLexico(entorno);
+                    analizadorCond.convertir_a_tokens(String.join(" ", condicionTokens));
+                    Object resultadoCond = analizadorCond.ExpresionValida();
+
+                    if ((resultadoCond instanceof Boolean && (Boolean) resultadoCond)
+                        || (resultadoCond instanceof String && resultadoCond.equals("true"))) {
+
+                        AnalizadorLexico analizadorCuerpo = new AnalizadorLexico(entorno);
+                        analizadorCuerpo.convertir_a_tokens("(" + String.join(" ", cuerpoTokens) + ")");
+                        return analizadorCuerpo.ExpresionValida();
                     }
                 }
 
-                i = j + 1;
+                i = j;
             } else {
                 i++;
             }
@@ -204,8 +236,6 @@ public class AnalizadorLexico {
 
         return null;
     }
-
-    @SuppressWarnings("unchecked")
     private Object evaluarLlamadaFuncion(String nombre) {
         DefinicionFunciones funcion = entorno.obtenerFuncion(nombre);
 
@@ -216,17 +246,18 @@ public class AnalizadorLexico {
         if (tokens.size() - 3 != funcion.params.size()) {
             return "Numero incorrecto de argumentos.";
         }
-
         Environment entornoLocal = new Environment();
         entornoLocal.variables.putAll(entorno.variables);
-        entornoLocal.functions.putAll(entorno.functions); // ✅ Soporta recursividad
+        entornoLocal.functions.putAll(entorno.functions);
 
         for (int i = 0; i < funcion.params.size(); i++) {
-            entornoLocal.variables.put(funcion.params.get(i), parseValor(tokens.get(i + 2)));
+            Object valorArgumento = parseValorObj(tokens.get(i + 2));
+            entornoLocal.variables.put(funcion.params.get(i), valorArgumento);
         }
 
         AnalizadorLexico analizador = new AnalizadorLexico(entornoLocal);
-        analizador.convertir_a_tokens(String.join(" ", (List<String>) funcion.body));
+        String cuerpoFuncion = "(" + String.join(" ", (List<String>) funcion.body) + ")";
+        analizador.convertir_a_tokens(cuerpoFuncion);
         return analizador.ExpresionValida();
     }
 
@@ -243,6 +274,17 @@ public class AnalizadorLexico {
             return Double.parseDouble(valor);
         } catch (NumberFormatException e) {
             return 0;
+        }
+    }
+
+    private Object parseValorObj(String valor) {
+        if (entorno.variables.containsKey(valor)) {
+            return entorno.variables.get(valor);
+        }
+        try {
+            return Double.parseDouble(valor);
+        } catch (NumberFormatException e) {
+            return valor;
         }
     }
 }
