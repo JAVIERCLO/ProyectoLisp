@@ -1,7 +1,8 @@
 import java.util.Scanner;
 public class Interprete {
 public static void main(String[] args) {
-        AnalizadorLexico analizador = new AnalizadorLexico();
+        Environment entorno = new Environment();
+        AnalizadorLexico analizador = new AnalizadorLexico(entorno);
         Scanner scanner = new Scanner(System.in);
 
         System.out.println("Ingrese una expresión en LISP:");

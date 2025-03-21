@@ -2,10 +2,11 @@ import java.io.*;
 import java.util.*;
 
 public class AnalizadorLexico {
-    
+    public Environment entorno;
     private List<String> tokens;
 
-    public AnalizadorLexico() {
+    public AnalizadorLexico(Environment entorno) {
+        this.entorno = entorno;
         this.tokens = new ArrayList<>();
     }
 
@@ -108,6 +109,22 @@ public class AnalizadorLexico {
         if(!tokens.getLast().equals(")")){
             return false;
         }
+        //Obtener nombre y parametros de la funcion (para que el usuario defina y llame a una funcion)
+        String nombreFuncion = tokens.get(2);
+        List<String> parametros = new ArrayList<>();
+        int i = 4;
+        while (i < tokens.size() && !tokens.get(i).equals(")")) {
+            if (!tokens.get(i).equals("(")) {
+                parametros.add(tokens.get(i));
+            }
+            i++;
+        }
+
+        // Obtener el cuerpo (todo lo que hay después hasta antes del paréntesis final)
+        List<String> cuerpo = tokens.subList(i + 1, tokens.size() - 1);
+
+        // Guardar la función en el entorno
+        entorno.definirFuncion(nombreFuncion, parametros, cuerpo);
     return true;
     }
 
