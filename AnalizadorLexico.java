@@ -49,6 +49,12 @@ public class AnalizadorLexico {
                 return validarSetq();
             case "quote":
                 return validarQuote();
+            case "cond":
+                return validarCond();
+            case "+": case "-": case "*": case "/":
+                return validarOperacion();
+            case "equal": case "<": case ">": case "atom": case "list":
+                return validarPredicados();
             default:
                 return false;
         }
@@ -132,11 +138,85 @@ public class AnalizadorLexico {
         if(!tokens.get(0).equals("(")){
             return false;
         }
-        //Verificar que tenga un argumento
-
         //Verificar parentesis final
         if(!tokens.getLast().equals(")")){
             return false;
+        }
+    return true;
+    }
+
+    //Revisar cond
+    private boolean validarCond(){
+        // Si hay menos de 5 tokens la estructura no es correcta
+        if (tokens.size() < 5) {
+            return false;
+        }
+        //Verificar que empiece con parentesis
+        if(!tokens.get(0).equals("(")){
+            return false;
+        }
+        //Verificar parentesis final
+        if(!tokens.getLast().equals(")")){
+            return false;
+        }
+        
+        //Verificar que haya una condicion en medio dentro de parentesis
+        boolean condicionValida = false;
+
+        for (int i = 2; i < tokens.size() - 1; i++) {
+            if (tokens.get(i).equals("(")) {
+                
+                for (int j = i + 1; j < tokens.size() - 1; j++) {
+                    if (tokens.get(j).equals(")")) {
+                        condicionValida = true;
+                        break;
+                    }
+                }
+                break;
+            }
+            return condicionValida;
+        }
+    return true;
+    }
+
+    //Revisar operaciones aritmeticas
+    private boolean validarOperacion() {
+        // Si no hay al menos 4 tokens la estructura esta mal
+        if (tokens.size() < 5) {
+            return false;
+        }
+        //Verificar parenteisis inicial
+        if (!tokens.get(0).equals("(")) {
+            return false;
+        }
+        //Verificar parentesis de cierre
+        if (!tokens.getLast().equals(")")) {
+            return false;
+        }
+        return true;
+    }
+
+    //Revisar predicados
+    private boolean validarPredicados(){
+        //Verificar parenteisis inicial
+        if (!tokens.get(0).equals("(")) {
+            return false;
+        }
+        //Verificar parentesis de cierre
+        if (!tokens.getLast().equals(")")) {
+            return false;
+        }
+        //Revisar la cantidad de tokens dependiendo del predicado
+        String predicado = tokens.get(1);
+        if(predicado.equals("equal") || predicado.equals("<") || predicado.equals(">")){
+            if(tokens.size() != 5){
+                return false;
+            }
+        }
+        else if(predicado.equals("atom") || predicado.equals("list")){
+            if(tokens.size() != 4){
+                return false;
+            }
         }
     return true;
     }
