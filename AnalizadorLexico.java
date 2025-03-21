@@ -1,242 +1,248 @@
-import java.io.*;
 import java.util.*;
 
 public class AnalizadorLexico {
-    public Environment entorno;
-    private List<String> tokens;
+    private Environment entorno;
+    public List<String> tokens = new ArrayList<>();
 
     public AnalizadorLexico(Environment entorno) {
         this.entorno = entorno;
-        this.tokens = new ArrayList<>();
     }
 
-    public void leerCodigo(String nombreArchivo) throws IOException {
-        StringBuilder codigo = new StringBuilder();
-        
-        try (BufferedReader br = new BufferedReader(new FileReader("nombre del archivo"))) {
-            String linea;
-            while ((linea = br.readLine()) != null) {
-                codigo.append(linea).append(" ");
+    public void convertir_a_tokens(String expresion) {
+        tokens.clear();
+        StringBuilder token = new StringBuilder();
+        for (char c : expresion.toCharArray()) {
+            if (c == '(' || c == ')') {
+                if (token.length() > 0) {
+                    tokens.add(token.toString());
+                    token.setLength(0);
+                }
+                tokens.add(String.valueOf(c));
+            } else if (Character.isWhitespace(c)) {
+                if (token.length() > 0) {
+                    tokens.add(token.toString());
+                    token.setLength(0);
+                }
+            } else {
+                token.append(c);
             }
         }
-
-        convertir_a_tokens(codigo.toString().trim());
+        if (token.length() > 0) {
+            tokens.add(token.toString());
+        }
     }
 
-
-
-    // Método para dividir el código en tokens
-    void convertir_a_tokens(String codigo) {
-        tokens.clear();
-        codigo = codigo.replace("(", " ( ").replace(")", " ) ").trim();
-        String[] partes = codigo.split("\\s+");
-
-        tokens.addAll(Arrays.asList(partes));
-    }
-
-    public List<String> getTokens() {
-        return tokens;
-    }
-
-    public boolean ExpresionValida() {
+    public Object ExpresionValida() {
         if (tokens.isEmpty()) return false;
-        
+
+        // ✅ Verificar si es una función definida antes del switch
+        if (tokens.size() >= 2 && entorno.funcionExiste(tokens.get(1))) {
+            return evaluarLlamadaFuncion(tokens.get(1));
+        }
+
         String tipoFuncion = tokens.get(1);
 
         switch (tipoFuncion) {
-            case "defun":
-                return validarDefun();
-            case "setq":
-                return validarSetq();
-            case "quote":
-                return validarQuote();
-            case "cond":
-                return validarCond();
-            case "+": case "-": case "*": case "/":
-                return validarOperacion();
-            case "equal": case "<": case ">": case "atom": case "list":
-                return validarPredicados();
-            default:
-                return false;
+            case "defun": return validarDefun();
+            case "setq": return evaluarSetq();
+            case "quote": return evaluarQuote();
+            case "cond": return evaluarCond();
+            case "+": case "-": case "*": case "/": return evaluarOperacionAritmetica();
+            case "equal": case "<": case ">": case "atom": case "list": return evaluarPredicados();
+            default: return "No se reconoce la expresion";
         }
     }
 
-    //Revisar si la estructura de un defun esta bien
     private boolean validarDefun() {
-        //Si tiene menos de 5 tokens no tiene la estructura correcta
-        if(tokens.size() < 5){
-            return false;
-        }
-        //Verifica que empiece con parentesis
-        if(!tokens.get(0).equals("(")){
-            return false;
-        }
-        //Verifica que haya parentesis antes de los parametros
-        if(!tokens.get(3).equals("(")){
-            return false;
-        }
-        //Verifica que haya parentesis despues de los parametros
-        int parentesisParametros = -1;
+        if (tokens.size() < 7) return false;
+        if (!tokens.get(0).equals("(")) return false;
+        if (!tokens.get(1).equals("defun")) return false;
+        if (!tokens.get(3).equals("(")) return false;
+
+        int indexCierreParametros = -1;
         for (int i = 4; i < tokens.size(); i++) {
             if (tokens.get(i).equals(")")) {
-                parentesisParametros = i;
+                indexCierreParametros = i;
                 break;
             }
         }
-        //Si no hay parentesis es falso
-        if(parentesisParametros == -1) {
-            return false;
-        }
-        // Verificar que el parentesis de los parametros no sea el ultimo token
-        if(parentesisParametros + 1 >= tokens.size() - 1) {
-            return false;
-        }
-        //Verificar que el cuerpo este entre parentesis
-        if(!tokens.get(parentesisParametros + 1).equals("(")) {
-            return false;
-        }
-        //Verificar que el cuerpo tenga parentesis de cierre
-        int parentesisCuerpo = -1;
-        for (int i = parentesisParametros + 2; i < tokens.size(); i++) {
+
+        if (indexCierreParametros == -1 || indexCierreParametros + 1 >= tokens.size()) return false;
+        if (!tokens.get(indexCierreParametros + 1).equals("(")) return false;
+
+        int indexCierreCuerpo = -1;
+        for (int i = indexCierreParametros + 2; i < tokens.size(); i++) {
             if (tokens.get(i).equals(")")) {
-                parentesisCuerpo = i;
+                indexCierreCuerpo = i;
             }
-        }//Si no hay parentesis es falso
-        if (parentesisCuerpo == -1) {
-            return false;
         }
-        //Verificar parentesis final
-        if(!tokens.getLast().equals(")")){
-            return false;
-        }
-        //Obtener nombre y parametros de la funcion (para que el usuario defina y llame a una funcion)
+
+        if (indexCierreCuerpo == -1) return false;
+        if (!tokens.get(tokens.size() - 1).equals(")")) return false;
+
         String nombreFuncion = tokens.get(2);
         List<String> parametros = new ArrayList<>();
-        int i = 4;
-        while (i < tokens.size() && !tokens.get(i).equals(")")) {
-            if (!tokens.get(i).equals("(")) {
-                parametros.add(tokens.get(i));
-            }
-            i++;
+        for (int i = 4; i < indexCierreParametros; i++) {
+            parametros.add(tokens.get(i));
         }
 
-        // Obtener el cuerpo (todo lo que hay después hasta antes del paréntesis final)
-        List<String> cuerpo = tokens.subList(i + 1, tokens.size() - 1);
+        List<String> cuerpo = new ArrayList<>();
+        for (int i = indexCierreParametros + 2; i < tokens.size() - 1; i++) {
+            cuerpo.add(tokens.get(i));
+        }
 
-        // Guardar la función en el entorno
         entorno.definirFuncion(nombreFuncion, parametros, cuerpo);
-    return true;
-    }
-
-    //Revisar si la estructura de un setq esta bien
-    private boolean validarSetq(){
-        //Verificar que empiece con parentesis
-        if(!tokens.get(0).equals("(")){
-            return false;
-        }
-        //Si hay menos de 4 tokens la estructura no es correcta.
-        if(tokens.size() < 4){
-            return false;
-        }
-        //Verificar parentesis final
-        if(!tokens.getLast().equals(")")){
-            return false;
-        }
-    return true;
-    }
-
-    //Revisar la estructura de un quote
-    private boolean validarQuote(){
-        // Verificar que haya 4 tokens
-        if (tokens.size() != 4) {
-            return false;
-        }
-        //Verificar que empiece con parentesis
-        if(!tokens.get(0).equals("(")){
-            return false;
-        }
-        //Verificar parentesis final
-        if(!tokens.getLast().equals(")")){
-            return false;
-        }
-    return true;
-    }
-
-    //Revisar cond
-    private boolean validarCond(){
-        // Si hay menos de 5 tokens la estructura no es correcta
-        if (tokens.size() < 5) {
-            return false;
-        }
-        //Verificar que empiece con parentesis
-        if(!tokens.get(0).equals("(")){
-            return false;
-        }
-        //Verificar parentesis final
-        if(!tokens.getLast().equals(")")){
-            return false;
-        }
-        
-        //Verificar que haya una condicion en medio dentro de parentesis
-        boolean condicionValida = false;
-
-        for (int i = 2; i < tokens.size() - 1; i++) {
-            if (tokens.get(i).equals("(")) {
-                
-                for (int j = i + 1; j < tokens.size() - 1; j++) {
-                    if (tokens.get(j).equals(")")) {
-                        condicionValida = true;
-                        break;
-                    }
-                }
-                break;
-            }
-            return condicionValida;
-        }
-    return true;
-    }
-
-    //Revisar operaciones aritmeticas
-    private boolean validarOperacion() {
-        // Si no hay al menos 4 tokens la estructura esta mal
-        if (tokens.size() < 5) {
-            return false;
-        }
-        //Verificar parenteisis inicial
-        if (!tokens.get(0).equals("(")) {
-            return false;
-        }
-        //Verificar parentesis de cierre
-        if (!tokens.getLast().equals(")")) {
-            return false;
-        }
         return true;
     }
 
-    //Revisar predicados
-    private boolean validarPredicados(){
-        //Verificar parenteisis inicial
-        if (!tokens.get(0).equals("(")) {
-            return false;
+    private Object evaluarSetq() {
+        if (tokens.size() != 5) return "Error: setq requiere una variable y un valor.";
+        String variable = tokens.get(2);
+        Object valor = parseValor(tokens.get(3));
+        entorno.variables.put(variable, valor);
+        return valor;
+    }
+
+    private Object evaluarOperacionAritmetica() {
+        if (tokens.size() < 5) return "Error: Se requieren al menos dos operandos.";
+
+        String operador = tokens.get(1);
+        double resultado = parseValor(tokens.get(2));
+
+        for (int i = 3; i < tokens.size() - 1; i++) {
+            double valor = parseValor(tokens.get(i));
+            switch (operador) {
+                case "+": resultado += valor; break;
+                case "-": resultado -= valor; break;
+                case "*": resultado *= valor; break;
+                case "/":
+                    if (valor == 0) return "Error: Division por cero.";
+                    resultado /= valor;
+                    break;
+            }
         }
-        //Verificar parentesis de cierre
-        if (!tokens.getLast().equals(")")) {
-            return false;
+        return resultado;
+    }
+
+    private Object evaluarQuote() {
+        if (tokens.size() < 4) {
+            return "Una expresion quote debe tener un argumento.";
         }
-        //Revisar la cantidad de tokens dependiendo del predicado
+
+        StringBuilder resultado = new StringBuilder();
+        for (int i = 2; i < tokens.size() - 1; i++) {
+            resultado.append(tokens.get(i)).append(" ");
+        }
+
+        return resultado.toString().trim();
+    }
+
+    private Object evaluarPredicados() {
         String predicado = tokens.get(1);
-        if(predicado.equals("equal") || predicado.equals("<") || predicado.equals(">")){
-            if(tokens.size() != 5){
-                return false;
+
+        if (predicado.equals("equal") || predicado.equals("<") || predicado.equals(">")) {
+            if (tokens.size() != 5) return "Este predicado requiere dos argumentos.";
+
+            double a = parseValor(tokens.get(2));
+            double b = parseValor(tokens.get(3));
+
+            switch (predicado) {
+                case "equal": return a == b;
+                case "<": return a < b;
+                case ">": return a > b;
             }
         }
-        else if(predicado.equals("atom") || predicado.equals("list")){
-            if(tokens.size() != 4){
-                return false;
+
+        if (predicado.equals("atom")) {
+            if (tokens.size() != 4) return "Este predicado requiere un argumento.";
+            String valor = tokens.get(2);
+            return !valor.startsWith("(");
+        }
+
+        if (predicado.equals("list")) {
+            StringBuilder lista = new StringBuilder();
+            for (int i = 2; i < tokens.size() - 1; i++) {
+                lista.append(tokens.get(i)).append(" ");
+            }
+            return "(" + lista.toString().trim() + ")";
+        }
+
+        return "Predicado no valido.";
+    }
+
+    private Object evaluarCond() {
+        int i = 2;
+        while (i < tokens.size()) {
+            if (tokens.get(i).equals("(")) {
+                int j = i + 1;
+                int balance = 1;
+                StringBuilder condicionStr = new StringBuilder();
+                condicionStr.append("(");
+                while (j < tokens.size() && balance > 0) {
+                    condicionStr.append(tokens.get(j)).append(" ");
+                    if (tokens.get(j).equals("(")) balance++;
+                    if (tokens.get(j).equals(")")) balance--;
+                    j++;
+                }
+
+                AnalizadorLexico analizadorCond = new AnalizadorLexico(entorno);
+                analizadorCond.convertir_a_tokens(condicionStr.toString().trim());
+                Object resultadoCond = analizadorCond.ExpresionValida();
+
+                if (resultadoCond instanceof Boolean && (Boolean) resultadoCond) {
+                    if (j < tokens.size() - 1) {
+                        String valor = tokens.get(j);
+                        return parseValor(valor);
+                    }
+                }
+
+                i = j + 1;
+            } else {
+                i++;
             }
         }
-    return true;
+
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Object evaluarLlamadaFuncion(String nombre) {
+        DefinicionFunciones funcion = entorno.obtenerFuncion(nombre);
+
+        if (funcion == null) {
+            return "La funcion no esta definida.";
+        }
+
+        if (tokens.size() - 3 != funcion.params.size()) {
+            return "Numero incorrecto de argumentos.";
+        }
+
+        Environment entornoLocal = new Environment();
+        entornoLocal.variables.putAll(entorno.variables);
+        entornoLocal.functions.putAll(entorno.functions); // ✅ Soporta recursividad
+
+        for (int i = 0; i < funcion.params.size(); i++) {
+            entornoLocal.variables.put(funcion.params.get(i), parseValor(tokens.get(i + 2)));
+        }
+
+        AnalizadorLexico analizador = new AnalizadorLexico(entornoLocal);
+        analizador.convertir_a_tokens(String.join(" ", (List<String>) funcion.body));
+        return analizador.ExpresionValida();
+    }
+
+    private double parseValor(String valor) {
+        if (entorno.variables.containsKey(valor)) {
+            try {
+                return Double.parseDouble(entorno.variables.get(valor).toString());
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+
+        try {
+            return Double.parseDouble(valor);
+        } catch (NumberFormatException e) {
+            return 0;
+        }
     }
 }
-
-
